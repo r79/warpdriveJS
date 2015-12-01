@@ -29,7 +29,7 @@ var image = {
     color: '#333333'
 };
 
-warpdrive.create({
+warpdrive.createRectangle({
     type: 'rect',
     width: 900,
     height: 500,

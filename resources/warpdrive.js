@@ -56,6 +56,11 @@ var WarpdriveJS = function (canvasId, width, height, backgroundColor, background
     this.create = function (options, parent) {
         return new WarpdriveObject(self).construct().regular(options, parent);
     };
+
+    this.createRectangle = function(options, parent) {
+        return new Rectangle(self).construct().regular(options, parent);
+    };
+
     this.selector = selector;
 
     //creates the upper parental node, refered to as 'god' (as this dude has no one over him). If this is not set, nodes without a parent cannot be drawn (which means you can't do anything)
@@ -398,7 +403,7 @@ function WarpdriveObject(warpdriveInstance) {
                     }
                 }
 
-                handleStyle(options, warpdriveInstance.getObjectById(self.parent));
+                self.handleStyle(options, warpdriveInstance.getObjectById(self.parent));
 
                 //sets itself as parent
                 warpdriveInstance.getObjectById(self.parent).childs.push(self.id);
@@ -425,7 +430,7 @@ function WarpdriveObject(warpdriveInstance) {
                     self.parent = parent.id;
                 }
 
-                handleStyle(options, parent);
+                self.handleStyle(options, parent);
 
                 if(self.type != 'text' && options.childs) {
                     options.childs.forEach(function (children) {
@@ -450,7 +455,7 @@ function WarpdriveObject(warpdriveInstance) {
                 self.color = options.color || '#FFFFFF';
 
                 if(options.image) {
-                    prepareAndValidateImage(options);
+                    self.prepareAndValidateImage(options);
                 }
                 render();
             });
@@ -493,12 +498,7 @@ function WarpdriveObject(warpdriveInstance) {
         }
     }
 
-    //redraws the current object. Only should be called by the Query.
-    function redraw() {
-        //this save is just to make sure no style conflicts occur.
-        warpdriveInstance.ctx.save();
-        warpdriveInstance.ctx.fillStyle = self.color;
-
+    function specificRedraw(){
         //chooses the correct type
         switch(self.type) {
             case 'rect':
@@ -522,6 +522,16 @@ function WarpdriveObject(warpdriveInstance) {
                 }
                 break;
         }
+    }
+
+    //redraws the current object. Only should be called by the Query.
+    function redraw() {
+        //this save is just to make sure no style conflicts occur.
+        warpdriveInstance.ctx.save();
+        warpdriveInstance.ctx.fillStyle = self.color;
+
+        self.specificRedraw();
+
         //draws the selection border
         if(self.selected) {
             warpdriveInstance.ctx.strokeStyle = warpdriveInstance.surface.selectorColor;
@@ -548,6 +558,8 @@ function WarpdriveObject(warpdriveInstance) {
     this.width = self.width;
     this.childs = self.childs;
     this.construct = construct;
+    this.specificRedraw = specificRedraw;
+    this.handleStyle = handleStyle;
 
     //external expose
     //create child is a helper function for creating a child by refering to the parental object (e.x. parent.createChild()). Uses regular constructor because of rendering.
@@ -555,6 +567,48 @@ function WarpdriveObject(warpdriveInstance) {
         return new WarpdriveObject(warpdriveInstance).construct().regular(options, childs, self.id);
     };
     this.moveDistance = moveDistance;
+}
+
+function Rectangle(warpdriveInstance) {
+    var self = new WarpdriveObject(warpdriveInstance);
+
+    self.specificRedraw = function() {
+        warpdriveInstance.ctx.fillRect(self.positionX, self.positionY, self.width, self.height);
+    };
+    return self;
+}
+
+function Text(warpdriveInstance) {
+    var self = new WarpdriveObject(warpdriveInstance);
+
+    //TODO handle childs first
+    //var parentHandleStyle = self.handleStyle;
+    //self.handleStyle = function() {
+    //    parentHandleStyle();
+    //
+    //};
+
+    self.specificRedraw = function() {
+        warpdriveInstance.ctx.font = self.height + 'px ' + self.fontfamily;
+        warpdriveInstance.ctx.fillText(self.textValue, self.positionX, self.positionY, self.width);
+    };
+    return self;
+}
+
+function Image(warpdriveInstance) {
+    var self = new WarpdriveObject(warpdriveInstance);
+    self.specificRedraw = function() {
+        //images behave a bit more special, as they only can get drawed when they are completely loaded.
+        //image.complete is not the safest function, but the easiest to use
+        if(self.image.complete) {
+            warpdriveInstance.ctx.drawImage(self.image, self.positionX, self.positionY, self.width, self.height);
+        } else {
+            //if the image hasn't been loaded yet, we draw a placeholder and defer the drawing for later.
+            warpdriveInstance.ctx.fillRect(self.positionX, self.positionY, self.width, self.height);
+            render(false, 10);
+        }
+    };
+    return self;
 }
 
 //exposing the whole Lib to the global namespace for access.
