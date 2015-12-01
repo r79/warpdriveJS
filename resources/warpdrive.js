@@ -53,12 +53,17 @@ var WarpdriveJS = function (canvasId, width, height, backgroundColor, background
 
     //public exposing
     this.getObjectById = getObjectById;
-    this.create = function (options, parent) {
-        return new WarpdriveObject(self).construct().regular(options, parent);
-    };
 
-    this.createRectangle = function(options, parent) {
-        return new Rectangle(self).construct().regular(options, parent);
+    var createableObjects = {};
+    createableObjects.Image = ImageObject;
+    createableObjects.Rectangle = Rectangle;
+    createableObjects.Text = Text;
+    this.create = function (options, parent) {
+        for (var attrname in createableObjects) {
+            if(attrname == options.type) {
+                return new createableObjects[attrname](self).construct().regular(options, parent);
+            }
+        }
     };
 
     this.selector = selector;
@@ -66,7 +71,7 @@ var WarpdriveJS = function (canvasId, width, height, backgroundColor, background
     //creates the upper parental node, refered to as 'god' (as this dude has no one over him). If this is not set, nodes without a parent cannot be drawn (which means you can't do anything)
     // the godnode handles default variables and the background of the whole canvas.
     // this needs to be executed in the end as it needs to use the exposings
-    new WarpdriveObject(self).construct().god({type: (backgroundImage? 'image' : 'rect'), color: backgroundColor, width: width, height: height, fontFamily: 'serif', image: (backgroundImage ? backgroundImage : '')});
+    new WarpdriveObject(self).construct().god({type: (backgroundImage? 'Image' : 'Rectangle'), color: backgroundColor, width: width, height: height, fontFamily: 'serif', image: (backgroundImage ? backgroundImage : '')});
 };
 
 //handles Drawing requests and Redraw
@@ -291,7 +296,7 @@ function WarpdriveObject(warpdriveInstance) {
             extended();
 
             //registers object as selectable if it's not text.
-            if(options.selectable && self.type !== 'text') {
+            if(options.selectable && self.type !== 'Text') {
                 warpdriveInstance.selector.registerSelectable(self.id, options.selectable.z, options.selectable.x, options.selectable.y);
             }
 
@@ -343,21 +348,21 @@ function WarpdriveObject(warpdriveInstance) {
             self.color = options.color || '#FFFFFF';
 
             switch(self.type) {
-                case 'text':
+                case 'Text':
                     if(!prepareAndValidateText(options)) {
                         console.log('WarpdriveObject construction failed: Text object has no text value\n' + JSON.stringify(options));
                         return;
                     }
                     break;
 
-                case 'image':
+                case 'Image':
                     if(!prepareAndValidateImage(options)) {
                         console.log('WarpdriveObject construction failed: Image object has none or a not valid image attribute\n' + JSON.stringify(options));
                         return;
                     }
                     break;
 
-                case 'rect':
+                case 'Rectangle':
                     break;
 
                 default:
@@ -365,6 +370,7 @@ function WarpdriveObject(warpdriveInstance) {
                     return;
             }
         }
+        self.handleStyle = handleStyle;
 
         //merges template options into the regular options. Works Cascading (the highest option is used).
         //removes the template attribute.
@@ -395,7 +401,7 @@ function WarpdriveObject(warpdriveInstance) {
                 if(!warpdriveInstance.getObjectById(parentId)) {
                     self.parent = 'internal.god';
                 } else {
-                    if(getObjectById(parentId).type === 'text') {
+                    if(getObjectById(parentId).type === 'Text') {
                         console.log('WarpdriveObject construction failed: Text nodes can not be set as parents\n' + JSON.stringify(options));
                         return;
                     } else {
@@ -409,7 +415,7 @@ function WarpdriveObject(warpdriveInstance) {
                 warpdriveInstance.getObjectById(self.parent).childs.push(self.id);
 
                 //if the node isn't text, it instantiates and adds all its childs to itself
-                if(self.type != 'text' && options.childs) {
+                if(self.type != 'Text' && options.childs) {
                     options.childs.forEach(function (children) {
                         self.childs.push(new WarpdriveObject(warpdriveInstance).construct().child(children, self));
                     });
@@ -423,7 +429,7 @@ function WarpdriveObject(warpdriveInstance) {
         function child(options, parent) {
             options = mergeOptionsIntoTemplate(options);
             return constructEssentials(options, function () {
-                if(parent.type === 'text') {
+                if(parent.type === 'Text') {
                     console.log('WarpdriveObject construction failed: Text nodes can not be set as parents\n' + JSON.stringify(options));
                     return;
                 } else {
@@ -432,7 +438,7 @@ function WarpdriveObject(warpdriveInstance) {
 
                 self.handleStyle(options, parent);
 
-                if(self.type != 'text' && options.childs) {
+                if(self.type != 'Text' && options.childs) {
                     options.childs.forEach(function (children) {
                         self.childs.push(new WarpdriveObject(warpdriveInstance).construct().child(children, self));
                     });
@@ -465,8 +471,9 @@ function WarpdriveObject(warpdriveInstance) {
         return {
             regular: regular,
             child: child,
-            god: god
-        }
+            god: god,
+            handleStyle: handleStyle
+        };
     }
 
     //updates the current position of the object
@@ -501,16 +508,16 @@ function WarpdriveObject(warpdriveInstance) {
     function specificRedraw(){
         //chooses the correct type
         switch(self.type) {
-            case 'rect':
+            case 'Rectangle':
                 warpdriveInstance.ctx.fillRect(self.positionX, self.positionY, self.width, self.height);
                 break;
 
-            case 'text':
+            case 'Text':
                 warpdriveInstance.ctx.font = self.height + 'px ' + self.fontfamily;
                 warpdriveInstance.ctx.fillText(self.textValue, self.positionX, self.positionY, self.width);
                 break;
 
-            case 'image':
+            case 'Image':
                 //images behave a bit more special, as they only can get drawed when they are completely loaded.
                 //image.complete is not the safest function, but the easiest to use
                 if(self.image.complete) {
@@ -518,7 +525,7 @@ function WarpdriveObject(warpdriveInstance) {
                 } else {
                     //if the image hasn't been loaded yet, we draw a placeholder and defer the drawing for later.
                     warpdriveInstance.ctx.fillRect(self.positionX, self.positionY, self.width, self.height);
-                    render(false, 10);
+                    self.render(false, 10);
                 }
                 break;
         }
@@ -559,7 +566,6 @@ function WarpdriveObject(warpdriveInstance) {
     this.childs = self.childs;
     this.construct = construct;
     this.specificRedraw = specificRedraw;
-    this.handleStyle = handleStyle;
 
     //external expose
     //create child is a helper function for creating a child by refering to the parental object (e.x. parent.createChild()). Uses regular constructor because of rendering.
@@ -595,7 +601,7 @@ function Text(warpdriveInstance) {
     return self;
 }
 
-function Image(warpdriveInstance) {
+function ImageObject(warpdriveInstance) {
     var self = new WarpdriveObject(warpdriveInstance);
     self.specificRedraw = function() {
         //images behave a bit more special, as they only can get drawed when they are completely loaded.
@@ -605,7 +611,7 @@ function Image(warpdriveInstance) {
         } else {
             //if the image hasn't been loaded yet, we draw a placeholder and defer the drawing for later.
             warpdriveInstance.ctx.fillRect(self.positionX, self.positionY, self.width, self.height);
-            render(false, 10);
+            self.render(false, 10);
         }
     };
     return self;

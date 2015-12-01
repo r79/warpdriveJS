@@ -1,7 +1,7 @@
 var warpdrive = new WarpdriveJS('mainContent', 1000, 600, '#000000');
 
 var textNode = {
-    type: 'text',
+    type: 'Text',
     height: 18,
     offsetX: 15,
     offsetY: 75,
@@ -11,7 +11,7 @@ var textNode = {
 };
 
 var navObject = {
-    type: 'rect',
+    type: 'Rectangle',
     width: 150,
     height: 150,
     color: '#00FF00',
@@ -24,13 +24,13 @@ var navObject = {
 
 var image = {
     template: navObject,
-    type: 'image',
+    type: 'Image',
     image: 'http://www.worldsciencefestival.com/wp-content/uploads/2011/05/is_warp_drive_possible.jpg',
     color: '#333333'
 };
 
-warpdrive.createRectangle({
-    type: 'rect',
+warpdrive.create({
+    type: 'Rectangle',
     width: 900,
     height: 500,
     offsetX: 50,
