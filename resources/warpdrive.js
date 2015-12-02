@@ -438,10 +438,6 @@ function WarpdriveObject(warpdriveInstance) {
         } else {
             self.radians = 0;
         }
-
-        if(self.points) {
-            self.handlePoints();
-        }
     }
     self.handleStyle = handleStyle;
 
@@ -493,9 +489,6 @@ function WarpdriveObject(warpdriveInstance) {
     function render(isChildChange, tick) {
         var temporaryChangequery = [];
         self.updatePosition();
-        if(self.drawPoints) {
-            self.handlePoints();
-        }
         temporaryChangequery.push(self);
 
         self.childs.forEach(function (child) {
@@ -594,7 +587,7 @@ function VectorObject(warpdriveInstance) {
         return { x:x/f, y:y/f };
     }
 
-    function updateDrawPoints() {
+    self.updateDrawPoints = function updateDrawPoints() {
         var centralPoint = get_polygon_centroid(self.drawPoints);
 
         function calculatePoint(x, y) {
@@ -612,10 +605,9 @@ function VectorObject(warpdriveInstance) {
         for(var i=0;i<self.drawPoints.length;i++) {
             self.drawPoints[i] = calculatePoint(self.drawPoints[i].x, self.drawPoints[i].y);
         }
-    }
-    self.updateDrawPoints = updateDrawPoints;
+    };
 
-    function handlePoints() {
+    self.handlePoints = function handlePoints() {
         self.drawPoints = [];
         for(var i = 0; i < self.points.length; i++) {
             var point = self.points[i];
@@ -625,8 +617,7 @@ function VectorObject(warpdriveInstance) {
             };
         }
         self.updateDrawPoints();
-    }
-    self.handlePoints = handlePoints;
+    };
 
 
     var parentalHandleStyle = self.handleStyle;
