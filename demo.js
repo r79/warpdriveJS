@@ -29,6 +29,23 @@ var image = {
     color: '#333333'
 };
 
+
+
+function Triangle(warpdriveInstance) {
+    var self = new WarpdriveObject(warpdriveInstance);
+
+    self.specificRedraw = function() {
+        warpdriveInstance.ctx.beginPath();
+        warpdriveInstance.ctx.moveTo(self.positionX, self.positionY + self.height);
+        warpdriveInstance.ctx.lineTo(self.positionX + self.width, self.positionY + self.height);
+        warpdriveInstance.ctx.lineTo(self.positionX + self.width / 2, self.positionY);
+        warpdriveInstance.ctx.fill();
+    };
+    return self;
+}
+
+warpdrive.registerObject('Triangle', Triangle);
+
 warpdrive.create({
     type: 'Rectangle',
     width: 900,
@@ -80,6 +97,7 @@ warpdrive.create({
         },
         {
             template: navObject,
+            type: 'Triangle',
             offsetX: 250,
             offsetY: 250,
             selectable: {
@@ -90,7 +108,9 @@ warpdrive.create({
             childs: [
                 {
                     template: textNode,
-                    textValue: textNode.textValue + ' 2'
+                    offsetY: 100,
+                    offsetX: 42,
+                    textValue: 'Illuminati'
                 }
             ]
         },

@@ -55,15 +55,53 @@ var WarpdriveJS = function (canvasId, width, height, backgroundColor, background
     this.getObjectById = getObjectById;
 
     var createableObjects = {};
-    createableObjects.Image = ImageObject;
-    createableObjects.Rectangle = Rectangle;
-    createableObjects.Text = Text;
-    this.create = function (options, parent) {
+
+    function registerObject(name, object) {
+        createableObjects[name] = object;
+    }
+    registerObject('Rectangle', Rectangle);
+    registerObject('Image', ImageObject);
+    registerObject('Text', Text);
+
+    this.registerObject = registerObject;
+
+    //merges template options into the regular options. Works Cascading (the highest option is used).
+    //removes the template attribute.
+    function mergeOptionsIntoTemplate(options) {
+        if(options.template) {
+            var merged = {};
+            var template = options.template.template ? mergeOptionsIntoTemplate(options.template) : options.template;
+            for (var attrname in template) {
+                if(attrname !== 'template') {
+                    merged[attrname] = template[attrname];
+                }
+            }
+            for (var attrname in options) {
+                if (attrname !== 'template') {
+                    merged[attrname] = options[attrname];
+                }
+            }
+            return merged;
+        }
+        return options;
+    }
+
+    function instantiateObject(type) {
         for (var attrname in createableObjects) {
-            if(attrname == options.type) {
-                return new createableObjects[attrname](self).construct().regular(options, parent);
+            if(attrname == type) {
+                return new createableObjects[attrname](self);
             }
         }
+    }
+
+    this.create = function (options, parent) {
+        options = mergeOptionsIntoTemplate(options);
+        return instantiateObject(options.type).regular(options, parent);
+    };
+
+    this.createChild  = function (options, parent) {
+        options = mergeOptionsIntoTemplate(options);
+        return instantiateObject(options.type).child(options, parent);
     };
 
     this.selector = selector;
@@ -71,7 +109,59 @@ var WarpdriveJS = function (canvasId, width, height, backgroundColor, background
     //creates the upper parental node, refered to as 'god' (as this dude has no one over him). If this is not set, nodes without a parent cannot be drawn (which means you can't do anything)
     // the godnode handles default variables and the background of the whole canvas.
     // this needs to be executed in the end as it needs to use the exposings
-    new WarpdriveObject(self).construct().god({type: (backgroundImage? 'Image' : 'Rectangle'), color: backgroundColor, width: width, height: height, fontFamily: 'serif', image: (backgroundImage ? backgroundImage : '')});
+
+    var god;
+    if(backgroundImage) {
+        god = new ImageObject(self);
+    } else {
+        god = new Rectangle(self);
+    }
+
+    god.construct = function(options) {
+        god.id = 'internal.god';
+        god.god = true;
+
+        //checks the type of the object. There is another check in 'handle style' that checks if the type is valid.
+        if(options.type) {
+            god.type = options.type;
+        } else {
+            console.log('WarpdriveObject construction failed: Object has no type\n' + JSON.stringify(options));
+            return;
+        }
+
+        //sets the childnode
+        god.childs = [];
+
+        //adds the object to the huge objectsarray.
+        self.objects[god.id] = god;
+
+        god.positionX = 0;
+        god.positionY = 0;
+
+        god.width = options.width;
+        god.height = options.height;
+
+        god.color = options.color || '#FFFFFF';
+
+        if(options.image) {
+            if(!(options.image && (typeof options.image === 'CanvasImageSource' || typeof options.image === 'string'))) {
+                return false;
+            }
+            if(typeof options.image === 'CanvasImageSource') {
+                god.image = options.image;
+            } else if(typeof options.image === 'string') {
+                god.image = new Image();
+                god.image.src = options.image;
+            }
+            return true;
+        }
+
+        god.render();
+
+        //returns its ID.
+        return god.id;
+    };
+    god.construct({type: (backgroundImage? 'Image' : 'Rectangle'), color: backgroundColor, width: width, height: height, fontFamily: 'serif', image: (backgroundImage ? backgroundImage : '')});
 };
 
 //handles Drawing requests and Redraw
@@ -243,6 +333,7 @@ function Selector(warpdriveInstance) {
     this.moveOut = moveOut;
 }
 
+//TODO: outdated, rework
 /*
  declaration of the options argument:
  - width and height are optional for text.
@@ -267,213 +358,107 @@ function Selector(warpdriveInstance) {
 function WarpdriveObject(warpdriveInstance) {
     var self = this;
 
-    //whole construction logic. Might be put into a factory.
-    function construct() {
-        //provides and checks the most essential parts
-        function constructEssentials(options, extended) {
-            //checks if the id is valid. If it is not, the object will get a default ID.
-            // IDs shall not have dots in there, as dots are used by the god object and by default ids.
-            if (options.id && (options.id.indexOf(".") === -1 && !getObjectById(options.id)) || self.god) {
-                self.id = options.id;
-            } else {
-                self.id = warpdriveInstance.getDefaultId();
-            }
-            //checks the type of the object. There is another check in 'handle style' that checks if the type is valid.
-            if(options.type) {
-                self.type = options.type;
-            } else {
-                console.log('WarpdriveObject construction failed: Object has no type\n' + JSON.stringify(options));
-                return;
-            }
-
-            //sets the childnode
-            self.childs = [];
-
-            //adds the object to the huge objectsarray.
-            warpdriveInstance.objects[self.id] = self;
-
-            //callback to add specific logic
-            extended();
-
-            //registers object as selectable if it's not text.
-            if(options.selectable && self.type !== 'Text') {
-                warpdriveInstance.selector.registerSelectable(self.id, options.selectable.z, options.selectable.x, options.selectable.y);
-            }
-
-            //returns its ID.
-            return self.id;
+    //provides and checks the most essential parts
+    function constructEssentials(options, preValidation, postInit) {
+        //checks if the id is valid. If it is not, the object will get a default ID.
+        // IDs shall not have dots in there, as dots are used by the god object and by default ids.
+        if (options.id && (options.id.indexOf(".") === -1 && !getObjectById(options.id))) {
+            self.id = options.id;
+        } else {
+            self.id = warpdriveInstance.getDefaultId();
+        }
+        //checks the type of the object. There is another check in 'handle style' that checks if the type is valid.
+        if(options.type) {
+            self.type = options.type;
+        } else {
+            console.log('WarpdriveObject construction failed: Object has no type\n' + JSON.stringify(options));
+            return;
         }
 
-        //checks if text is valid and prepares it.
-        function prepareAndValidateText(options) {
-            if(!options.textValue){
-                return false;
-            }
-            self.textValue = options.textValue;
-            return true;
+        //sets the childnode
+        self.childs = [];
+
+        //adds the object to the huge objectsarray.
+        warpdriveInstance.objects[self.id] = self;
+
+        //callback to add specific logic
+        if(preValidation) {
+            preValidation();
         }
 
-        //checks if image is valid and prepares it. If image is a URL string, it tries to load it.
-        function prepareAndValidateImage(options) {
-            if(!(options.image && (typeof options.image === 'CanvasImageSource' || typeof options.image === 'string'))) {
-                return false;
-            }
-            if(typeof options.image === 'CanvasImageSource') {
-                self.image = options.image;
-            } else if(typeof options.image === 'string') {
-                self.image = new Image();
-                self.image.src = options.image;
-            }
-            return true;
-        }
+        self.handleStyle(options, warpdriveInstance.getObjectById(self.parent));
 
-        //handles filling of styles and checks specific attributes per type. Also, validates type.
-        //needs the instance of the parentnode.
-        function handleStyle(options, parent) {
-            self.offsetX = options.offsetX || 0;
-            self.offsetY = options.offsetY || 0;
-
-            //TODO: check if object is outside parent and handle that case in a good fashion.
-            self.positionX = parent.positionX + self.offsetX;
-            self.positionY = parent.positionY + self.offsetY;
-
-            //Height und Width can not exceed parent.
-            self.width = options.width <= parent.width ? options.width : parent.width;
-            self.height = options.height <= parent.height ? options.height : parent.height;
-
-            //Fontfamily should be set on all objects, to provide inheritance
-            self.fontfamily = options.fontFamily || parent.fontFamily;
-
-            //Sets color to white if none is provided
-            self.color = options.color || '#FFFFFF';
-
-            switch(self.type) {
-                case 'Text':
-                    if(!prepareAndValidateText(options)) {
-                        console.log('WarpdriveObject construction failed: Text object has no text value\n' + JSON.stringify(options));
-                        return;
-                    }
-                    break;
-
-                case 'Image':
-                    if(!prepareAndValidateImage(options)) {
-                        console.log('WarpdriveObject construction failed: Image object has none or a not valid image attribute\n' + JSON.stringify(options));
-                        return;
-                    }
-                    break;
-
-                case 'Rectangle':
-                    break;
-
-                default:
-                    console.log('WarpdriveObject construction failed: Object type is invalid\n' + JSON.stringify(options));
-                    return;
-            }
-        }
-        self.handleStyle = handleStyle;
-
-        //merges template options into the regular options. Works Cascading (the highest option is used).
-        //removes the template attribute.
-        function mergeOptionsIntoTemplate(options) {
-            if(options.template) {
-                var merged = {};
-                var template = options.template.template ? mergeOptionsIntoTemplate(options.template) : options.template;
-                for (var attrname in template) {
-                    if(attrname !== 'template') {
-                        merged[attrname] = template[attrname];
-                    }
-                }
-                for (var attrname in options) {
-                    if (attrname !== 'template') {
-                        merged[attrname] = options[attrname];
-                    }
-                }
-                return merged;
-            }
-            return options;
-        }
-
-        //builds a regular object. Default constructor. Sets itself as a child of its parent (Parent = godnode if not set)
-        function regular(options, parentId) {
-            options = mergeOptionsIntoTemplate(options);
-            return constructEssentials(options, function () {
-                //ID Validation and setting.
-                if(!warpdriveInstance.getObjectById(parentId)) {
-                    self.parent = 'internal.god';
-                } else {
-                    if(getObjectById(parentId).type === 'Text') {
-                        console.log('WarpdriveObject construction failed: Text nodes can not be set as parents\n' + JSON.stringify(options));
-                        return;
-                    } else {
-                        self.parent = parentId;
-                    }
-                }
-
-                self.handleStyle(options, warpdriveInstance.getObjectById(self.parent));
-
-                //sets itself as parent
-                warpdriveInstance.getObjectById(self.parent).childs.push(self.id);
-
-                //if the node isn't text, it instantiates and adds all its childs to itself
-                if(self.type != 'Text' && options.childs) {
-                    options.childs.forEach(function (children) {
-                        self.childs.push(new WarpdriveObject(warpdriveInstance).construct().child(children, self));
-                    });
-                }
-
-                render();
+        if(self.type != 'Text' && options.childs) {
+            options.childs.forEach(function (children) {
+                self.childs.push(warpdriveInstance.createChild(children, self));
             });
         }
 
-        //creates a child, basically the same as regular, without setting the parent and without rendering
-        function child(options, parent) {
-            options = mergeOptionsIntoTemplate(options);
-            return constructEssentials(options, function () {
-                if(parent.type === 'Text') {
+        //registers object as selectable if it's not text.
+        if(options.selectable && self.type !== 'Text') {
+            warpdriveInstance.selector.registerSelectable(self.id, options.selectable.z, options.selectable.x, options.selectable.y);
+        }
+
+        if(postInit) {
+            postInit();
+        }
+
+        //returns its ID.
+        return self.id;
+    }
+
+    //handles filling of styles and checks specific attributes per type. Also, validates type.
+    //needs the instance of the parentnode.
+    function handleStyle(options, parent) {
+        self.offsetX = options.offsetX || 0;
+        self.offsetY = options.offsetY || 0;
+
+        //TODO: check if object is outside parent and handle that case in a good fashion.
+        self.positionX = parent.positionX + self.offsetX;
+        self.positionY = parent.positionY + self.offsetY;
+
+        //Height und Width can not exceed parent.
+        self.width = options.width <= parent.width ? options.width : parent.width;
+        self.height = options.height <= parent.height ? options.height : parent.height;
+
+        //Fontfamily should be set on all objects, to provide inheritance
+        self.fontfamily = options.fontFamily || parent.fontFamily;
+
+        //Sets color to white if none is provided
+        self.color = options.color || '#FFFFFF';
+    }
+    self.handleStyle = handleStyle;
+
+    //builds a regular object. Default constructor. Sets itself as a child of its parent (Parent = godnode if not set)
+    function regular(options, parentId) {
+        return constructEssentials(options, function () {
+            //ID Validation and setting.
+            if(!warpdriveInstance.getObjectById(parentId)) {
+                self.parent = 'internal.god';
+            } else {
+                if(getObjectById(parentId).type === 'Text') {
                     console.log('WarpdriveObject construction failed: Text nodes can not be set as parents\n' + JSON.stringify(options));
                     return;
                 } else {
-                    self.parent = parent.id;
+                    self.parent = parentId;
                 }
+            }
+        }, function () {
+            warpdriveInstance.getObjectById(self.parent).childs.push(self.id);
+            self.render();
+        });
+    }
 
-                self.handleStyle(options, parent);
-
-                if(self.type != 'Text' && options.childs) {
-                    options.childs.forEach(function (children) {
-                        self.childs.push(new WarpdriveObject(warpdriveInstance).construct().child(children, self));
-                    });
-                }
-            });
-        }
-
-        //creates the godnode. Skips all handleStyle stuff except for the image.
-        function god(options) {
-            options.id = 'internal.god';
-            self.god = true;
-            return constructEssentials(options, function () {
-
-                self.positionX = 0;
-                self.positionY = 0;
-
-                self.width = options.width;
-                self.height = options.height;
-
-                self.color = options.color || '#FFFFFF';
-
-                if(options.image) {
-                    self.prepareAndValidateImage(options);
-                }
-                render();
-            });
-        }
-
-        //exposation of the 3 construction functions
-        return {
-            regular: regular,
-            child: child,
-            god: god,
-            handleStyle: handleStyle
-        };
+    //creates a child, basically the same as regular, without setting the parent and without rendering
+    function child(options, parent) {
+        return constructEssentials(options, function () {
+            if(parent.type === 'Text') {
+                console.log('WarpdriveObject construction failed: Text nodes can not be set as parents\n' + JSON.stringify(options));
+                return;
+            } else {
+                self.parent = parent.id;
+            }
+        });
     }
 
     //updates the current position of the object
@@ -506,29 +491,7 @@ function WarpdriveObject(warpdriveInstance) {
     }
 
     function specificRedraw(){
-        //chooses the correct type
-        switch(self.type) {
-            case 'Rectangle':
-                warpdriveInstance.ctx.fillRect(self.positionX, self.positionY, self.width, self.height);
-                break;
-
-            case 'Text':
-                warpdriveInstance.ctx.font = self.height + 'px ' + self.fontfamily;
-                warpdriveInstance.ctx.fillText(self.textValue, self.positionX, self.positionY, self.width);
-                break;
-
-            case 'Image':
-                //images behave a bit more special, as they only can get drawed when they are completely loaded.
-                //image.complete is not the safest function, but the easiest to use
-                if(self.image.complete) {
-                    warpdriveInstance.ctx.drawImage(self.image, self.positionX, self.positionY, self.width, self.height);
-                } else {
-                    //if the image hasn't been loaded yet, we draw a placeholder and defer the drawing for later.
-                    warpdriveInstance.ctx.fillRect(self.positionX, self.positionY, self.width, self.height);
-                    self.render(false, 10);
-                }
-                break;
-        }
+        //overwrite
     }
 
     //redraws the current object. Only should be called by the Query.
@@ -564,13 +527,16 @@ function WarpdriveObject(warpdriveInstance) {
     this.height = self.height;
     this.width = self.width;
     this.childs = self.childs;
-    this.construct = construct;
     this.specificRedraw = specificRedraw;
+    this.regular = regular;
+    this.child = child;
+    this.constructEssentials = constructEssentials;
+    this.handleStyle = handleStyle;
 
     //external expose
     //create child is a helper function for creating a child by refering to the parental object (e.x. parent.createChild()). Uses regular constructor because of rendering.
     this.createChild = function (options, childs) {
-        return new WarpdriveObject(warpdriveInstance).construct().regular(options, childs, self.id);
+        return new WarpdriveObject(warpdriveInstance).regular(options, childs, self.id);
     };
     this.moveDistance = moveDistance;
 }
@@ -587,12 +553,23 @@ function Rectangle(warpdriveInstance) {
 function Text(warpdriveInstance) {
     var self = new WarpdriveObject(warpdriveInstance);
 
-    //TODO handle childs first
-    //var parentHandleStyle = self.handleStyle;
-    //self.handleStyle = function() {
-    //    parentHandleStyle();
-    //
-    //};
+    //checks if text is valid and prepares it.
+    function prepareAndValidateText(options) {
+        if(!options.textValue){
+            return false;
+        }
+        self.textValue = options.textValue;
+        return true;
+    }
+
+    var parentalHandleStyle = self.handleStyle;
+    self.handleStyle = function(options, parent) {
+        parentalHandleStyle(options, parent);
+        if(!prepareAndValidateText(options)) {
+            console.log('WarpdriveObject construction failed: Text object has no text value\n' + JSON.stringify(options));
+            return;
+        }
+    };
 
     self.specificRedraw = function() {
         warpdriveInstance.ctx.font = self.height + 'px ' + self.fontfamily;
@@ -603,6 +580,30 @@ function Text(warpdriveInstance) {
 
 function ImageObject(warpdriveInstance) {
     var self = new WarpdriveObject(warpdriveInstance);
+
+    //checks if image is valid and prepares it. If image is a URL string, it tries to load it.
+    function prepareAndValidateImage(options) {
+        if(!(options.image && (typeof options.image === 'CanvasImageSource' || typeof options.image === 'string'))) {
+            return false;
+        }
+        if(typeof options.image === 'CanvasImageSource') {
+            self.image = options.image;
+        } else if(typeof options.image === 'string') {
+            self.image = new Image();
+            self.image.src = options.image;
+        }
+        return true;
+    }
+
+    var parentalHandleStyle = self.handleStyle;
+    self.handleStyle = function(options, parent) {
+        parentalHandleStyle(options, parent);
+        if(!prepareAndValidateImage(options)) {
+            console.log('WarpdriveObject construction failed: Image object has none or a not valid image attribute\n' + JSON.stringify(options));
+            return;
+        }
+    };
+
     self.specificRedraw = function() {
         //images behave a bit more special, as they only can get drawed when they are completely loaded.
         //image.complete is not the safest function, but the easiest to use
