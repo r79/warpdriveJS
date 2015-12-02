@@ -623,13 +623,13 @@ function VectorObject(warpdriveInstance) {
     var parentalHandleStyle = self.handleStyle;
     self.handleStyle = function(options, parent) {
         parentalHandleStyle(options, parent);
-        handlePoints();
+        self.handlePoints();
     };
 
     var parentalUpdatePosition = self.updatePosition;
     self.updatePosition = function () {
         parentalUpdatePosition();
-        handlePoints();
+        self.handlePoints();
     };
 
     self.specificRedraw = function() {
