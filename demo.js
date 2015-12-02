@@ -32,32 +32,58 @@ var image = {
 
 
 function Triangle(warpdriveInstance) {
-    var self = new WarpdriveObject(warpdriveInstance);
+    var self = warpdriveInstance.instantiateObject('VectorObject');
 
-    self.specificRedraw = function() {
-        warpdriveInstance.ctx.beginPath();
-        warpdriveInstance.ctx.moveTo(self.positionX, self.positionY + self.height);
-        warpdriveInstance.ctx.lineTo(self.positionX + self.width, self.positionY + self.height);
-        warpdriveInstance.ctx.lineTo(self.positionX + self.width / 2, self.positionY);
-        warpdriveInstance.ctx.fill();
-    };
-
-    self.drawSelection = function () {
-        warpdriveInstance.ctx.strokeStyle = warpdriveInstance.surface.selectorColor;
-        warpdriveInstance.ctx.lineWidth = warpdriveInstance.surface.selectorSize;
-
-        warpdriveInstance.ctx.beginPath();
-        warpdriveInstance.ctx.moveTo(self.positionX + warpdriveInstance.surface.selectorSize / 1.5, self.positionY + self.height - warpdriveInstance.surface.selectorSize / 2);
-        warpdriveInstance.ctx.lineTo(self.positionX + self.width - warpdriveInstance.surface.selectorSize, self.positionY + self.height - warpdriveInstance.surface.selectorSize / 2);
-        warpdriveInstance.ctx.lineTo(self.positionX + self.width / 2, self.positionY + warpdriveInstance.surface.selectorSize / 0.8);
-        warpdriveInstance.ctx.lineTo(self.positionX + warpdriveInstance.surface.selectorSize, self.positionY + self.height - warpdriveInstance.surface.selectorSize / 2);
-        warpdriveInstance.ctx.lineTo(self.positionX + self.width - warpdriveInstance.surface.selectorSize, self.positionY + self.height - warpdriveInstance.surface.selectorSize / 2);
-        warpdriveInstance.ctx.stroke();
-    };
+    self.points = [
+        {
+            x: 0,
+            y: 100
+        },
+        {
+            x: 100,
+            y: 100
+        },
+        {
+            x: 50,
+            y: 0
+        }
+    ];
     return self;
 }
-
 warpdrive.registerObject('Triangle', Triangle);
+
+function Hexagon(warpdriveInstance) {
+    var self = warpdriveInstance.instantiateObject('VectorObject');
+
+    self.points = [
+        {
+            x: 25,
+            y: 0
+        },
+        {
+            x: 75,
+            y: 0
+        },
+        {
+            x: 100,
+            y: 50
+        },
+        {
+            x: 75,
+            y: 100
+        },
+        {
+            x: 25,
+            y: 100
+        },
+        {
+            x: 0,
+            y: 50
+        }
+    ];
+    return self;
+}
+warpdrive.registerObject('Hexagon', Hexagon);
 
 warpdrive.create({
     type: 'Rectangle',
@@ -129,6 +155,7 @@ warpdrive.create({
         },
         {
             template: navObject,
+            type: 'Hexagon',
             offsetX: 450,
             offsetY: 50,
             selectable: {

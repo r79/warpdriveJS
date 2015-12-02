@@ -59,6 +59,7 @@ var WarpdriveJS = function (canvasId, width, height, backgroundColor, background
     function registerObject(name, object) {
         createableObjects[name] = object;
     }
+    registerObject('VectorObject', VectorObject);
     registerObject('Rectangle', Rectangle);
     registerObject('Image', ImageObject);
     registerObject('Text', Text);
@@ -93,6 +94,7 @@ var WarpdriveJS = function (canvasId, width, height, backgroundColor, background
             }
         }
     }
+    self.instantiateObject = instantiateObject;
 
     this.create = function (options, parent) {
         options = mergeOptionsIntoTemplate(options);
@@ -157,7 +159,7 @@ var WarpdriveJS = function (canvasId, width, height, backgroundColor, background
             }
             return true;
         } else {
-            god.defineDrawPoints();
+            god.handlePoints();
         }
 
         god.render();
@@ -245,7 +247,7 @@ function Selector(warpdriveInstance) {
     function updateCurrent(selection) {
         var current = getSelected();
         current.selected = selection;
-        current.render();
+        warpdriveInstance.getObjectById(current.parent).render();
     }
 
     //starts the selection. Needs to be used so the first tile gets updated. If no first tile is set, it uses the 0 point in all axes.
@@ -436,6 +438,10 @@ function WarpdriveObject(warpdriveInstance) {
         } else {
             self.radians = 0;
         }
+
+        if(self.points) {
+            self.handlePoints();
+        }
     }
     self.handleStyle = handleStyle;
 
@@ -487,6 +493,9 @@ function WarpdriveObject(warpdriveInstance) {
     function render(isChildChange, tick) {
         var temporaryChangequery = [];
         self.updatePosition();
+        if(self.drawPoints) {
+            self.handlePoints();
+        }
         temporaryChangequery.push(self);
 
         self.childs.forEach(function (child) {
@@ -507,7 +516,7 @@ function WarpdriveObject(warpdriveInstance) {
     function drawSelection(){
         warpdriveInstance.ctx.strokeStyle = warpdriveInstance.surface.selectorColor;
         warpdriveInstance.ctx.lineWidth = warpdriveInstance.surface.selectorSize;
-        warpdriveInstance.ctx.strokeRect(self.positionX + warpdriveInstance.surface.selectorSize / 2, self.positionY + warpdriveInstance.surface.selectorSize/2, self.width - warpdriveInstance.surface.selectorSize, self.height - warpdriveInstance.surface.selectorSize);
+        warpdriveInstance.ctx.strokeRect(self.positionX, self.positionY, self.width, self.height);
     }
 
     //redraws the current object. Only should be called by the Query.
@@ -562,14 +571,31 @@ function WarpdriveObject(warpdriveInstance) {
     this.moveDistance = moveDistance;
 }
 
-function Rectangle(warpdriveInstance) {
+function VectorObject(warpdriveInstance) {
     var self = new WarpdriveObject(warpdriveInstance);
 
-    function defineDrawPoints() {
-        var centralPoint = {
-            x: self.positionX + self.width / 2,
-            y: self.positionY + self.height / 2
-        };
+    //big ups to http://stackoverflow.com/a/9939071
+    function get_polygon_centroid(pts) {
+        var first = pts[0], last = pts[pts.length-1];
+        //TODO: really nice stuff, but this might be in the wrong place
+        if (first.x != last.x || first.y != last.y) pts.push(first);
+        var twicearea=0,
+            x=0, y=0,
+            nPts = pts.length,
+            p1, p2, f;
+        for ( var i=0, j=nPts-1 ; i<nPts ; j=i++ ) {
+            p1 = pts[i]; p2 = pts[j];
+            f = p1.x*p2.y - p2.x*p1.y;
+            twicearea += f;
+            x += ( p1.x + p2.x ) * f;
+            y += ( p1.y + p2.y ) * f;
+        }
+        f = twicearea * 3;
+        return { x:x/f, y:y/f };
+    }
+
+    function updateDrawPoints() {
+        var centralPoint = get_polygon_centroid(self.drawPoints);
 
         function calculatePoint(x, y) {
             var tempX = x - centralPoint.x;
@@ -583,34 +609,90 @@ function Rectangle(warpdriveInstance) {
                 y: rotatedY + centralPoint.y
             }
         }
-
-        self.upperLeftPoint = calculatePoint(self.positionX, self.positionY);
-        self.upperRightPoint = calculatePoint(self.positionX + self.width, self.positionY);
-        self.lowerRightPoint = calculatePoint(self.positionX + self.width, self.positionY + self.height);
-        self.lowerLeftPoint = calculatePoint(self.positionX, self.positionY + self.height);
+        for(var i=0;i<self.drawPoints.length;i++) {
+            self.drawPoints[i] = calculatePoint(self.drawPoints[i].x, self.drawPoints[i].y);
+        }
     }
-    self.defineDrawPoints = defineDrawPoints;
+    self.updateDrawPoints = updateDrawPoints;
 
-    var parentUpdatePosition = self.updatePosition;
-    self.updatePosition = function () {
-        parentUpdatePosition();
-        self.defineDrawPoints();
-    };
+    function handlePoints() {
+        self.drawPoints = [];
+        for(var i = 0; i < self.points.length; i++) {
+            var point = self.points[i];
+            self.drawPoints[i] = {
+                x: self.positionX + self.width * point.x / 100,
+                y: self.positionY + self.height * point.y / 100
+            };
+        }
+        self.updateDrawPoints();
+    }
+    self.handlePoints = handlePoints;
+
 
     var parentalHandleStyle = self.handleStyle;
     self.handleStyle = function(options, parent) {
         parentalHandleStyle(options, parent);
-        self.defineDrawPoints();
+        handlePoints();
+    };
+
+    var parentalUpdatePosition = self.updatePosition;
+    self.updatePosition = function () {
+        parentalUpdatePosition();
+        handlePoints();
     };
 
     self.specificRedraw = function() {
         warpdriveInstance.ctx.beginPath();
-        warpdriveInstance.ctx.moveTo(self.upperLeftPoint.x, self.upperLeftPoint.y);
-        warpdriveInstance.ctx.lineTo(self.upperRightPoint.x, self.upperRightPoint.y);
-        warpdriveInstance.ctx.lineTo(self.lowerRightPoint.x, self.lowerRightPoint.y);
-        warpdriveInstance.ctx.lineTo(self.lowerLeftPoint.x, self.lowerLeftPoint.y);
+        warpdriveInstance.ctx.moveTo(self.drawPoints[0].x, self.drawPoints[0].y);
+
+        for(var i = 1; i < self.drawPoints.length; i++) {
+            warpdriveInstance.ctx.lineTo(self.drawPoints[i].x, self.drawPoints[i].y);
+        }
         warpdriveInstance.ctx.fill();
     };
+
+    self.drawSelection = function () {
+        warpdriveInstance.ctx.strokeStyle = warpdriveInstance.surface.selectorColor;
+        warpdriveInstance.ctx.lineWidth = warpdriveInstance.surface.selectorSize;
+
+        warpdriveInstance.ctx.beginPath();
+        warpdriveInstance.ctx.moveTo(self.drawPoints[0].x, self.drawPoints[0].y);
+
+        for(var i = 1; i < self.drawPoints.length; i++) {
+            warpdriveInstance.ctx.lineTo(self.drawPoints[i].x, self.drawPoints[i].y);
+        }
+
+        //redrawing the first line for smoothing the first corner
+        warpdriveInstance.ctx.lineTo(self.drawPoints[1].x, self.drawPoints[1].y);
+
+        warpdriveInstance.ctx.stroke();
+    };
+
+    return self;
+}
+
+function Rectangle(warpdriveInstance) {
+    var self = warpdriveInstance.instantiateObject('VectorObject');
+
+    self.points = [
+        {
+            x: 0,
+            y: 0
+        },
+        {
+            x: 100,
+            y: 0
+        },
+        {
+            x: 100,
+            y: 100
+        },
+        {
+            x: 0,
+            y: 100
+        }
+    ];
+
     return self;
 }
 
