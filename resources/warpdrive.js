@@ -486,7 +486,7 @@ function WarpdriveObject(warpdriveInstance) {
     //the tick is used to defer a rendering of an object (effectively used in defering the drawing of an image).
     function render(isChildChange, tick) {
         var temporaryChangequery = [];
-        updatePosition();
+        self.updatePosition();
         temporaryChangequery.push(self);
 
         self.childs.forEach(function (child) {
@@ -533,9 +533,16 @@ function WarpdriveObject(warpdriveInstance) {
         warpdriveInstance.getObjectById(self.parent).render();
     }
 
+    function changeRotation(difference) {
+        self.radians = (self.radians / Math.PI * 180 + difference) * Math.PI / 180;
+        warpdriveInstance.getObjectById(self.parent).render();
+    }
+
     //internal expose
     this.render = render;
+    this.updatePosition = updatePosition;
     this.redraw = redraw;
+    this.changeRotation = changeRotation;
     this.positionX = self.positionX;
     this.positionY = self.positionY;
     this.height = self.height;
@@ -545,7 +552,6 @@ function WarpdriveObject(warpdriveInstance) {
     this.drawSelection = drawSelection;
     this.regular = regular;
     this.child = child;
-    this.constructEssentials = constructEssentials;
     this.handleStyle = handleStyle;
 
     //external expose
@@ -565,24 +571,31 @@ function Rectangle(warpdriveInstance) {
             y: self.positionY + self.height / 2
         };
 
-        self.upperLeftPoint = {
-            x: centralPoint.x - self.width / 2 * Math.cos(self.radians),
-            y: centralPoint.y - self.height / 2 * Math.sin(self.radians)
-        };
-        self.upperRightPoint = {
-            x: centralPoint.x - self.width / 2 * Math.cos(self.radians),
-            y: centralPoint.y - self.height / 2 * -Math.sin(self.radians)
-        };
-        self.lowerRightPoint = {
-            x: centralPoint.x - self.width / 2 * -Math.cos(self.radians),
-            y: centralPoint.y - self.height / 2 * -Math.sin(self.radians)
-        };
-        self.lowerLeftPoint = {
-            x: centralPoint.x - self.width / 2 * -Math.cos(self.radians),
-            y: centralPoint.y - self.height / 2 * Math.sin(self.radians)
-        };
+        function calculatePoint(x, y) {
+            var tempX = x - centralPoint.x;
+            var tempY = y - centralPoint.y;
+
+            var rotatedX = tempX*Math.cos(self.radians) - tempY*Math.sin(self.radians);
+            var rotatedY = tempX*Math.sin(self.radians) + tempY*Math.cos(self.radians);
+
+            return {
+                x: rotatedX + centralPoint.x,
+                y: rotatedY + centralPoint.y
+            }
+        }
+
+        self.upperLeftPoint = calculatePoint(self.positionX, self.positionY);
+        self.upperRightPoint = calculatePoint(self.positionX + self.width, self.positionY);
+        self.lowerRightPoint = calculatePoint(self.positionX + self.width, self.positionY + self.height);
+        self.lowerLeftPoint = calculatePoint(self.positionX, self.positionY + self.height);
     }
     self.defineDrawPoints = defineDrawPoints;
+
+    var parentUpdatePosition = self.updatePosition;
+    self.updatePosition = function () {
+        parentUpdatePosition();
+        self.defineDrawPoints();
+    };
 
     var parentalHandleStyle = self.handleStyle;
     self.handleStyle = function(options, parent) {
@@ -594,13 +607,9 @@ function Rectangle(warpdriveInstance) {
         warpdriveInstance.ctx.beginPath();
         warpdriveInstance.ctx.moveTo(self.upperLeftPoint.x, self.upperLeftPoint.y);
         warpdriveInstance.ctx.lineTo(self.upperRightPoint.x, self.upperRightPoint.y);
-        warpdriveInstance.ctx.stroke();
         warpdriveInstance.ctx.lineTo(self.lowerRightPoint.x, self.lowerRightPoint.y);
-        warpdriveInstance.ctx.stroke();
         warpdriveInstance.ctx.lineTo(self.lowerLeftPoint.x, self.lowerLeftPoint.y);
-        warpdriveInstance.ctx.stroke();
-        warpdriveInstance.ctx.lineTo(self.upperLeftPoint.x, self.upperLeftPoint.y);
-        warpdriveInstance.ctx.stroke();
+        warpdriveInstance.ctx.fill();
     };
     return self;
 }

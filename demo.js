@@ -14,7 +14,6 @@ var navObject = {
     type: 'Rectangle',
     width: 150,
     height: 150,
-    rotation: 45,
     color: '#00FF00',
     selectable: {
         z: 0,
@@ -251,6 +250,18 @@ document.onkeydown = function (event) {
         case 87:
             // Key 'w'
             warpdrive.selector.getSelected().moveDistance(0, -5);
+            event.preventDefault();
+            break;
+
+        case 69:
+            // Key 'e'
+            warpdrive.selector.getSelected().changeRotation(5);
+            event.preventDefault();
+            break;
+
+        case 81:
+            // Key 'q'
+            warpdrive.selector.getSelected().changeRotation(-5);
             event.preventDefault();
             break;
     }
