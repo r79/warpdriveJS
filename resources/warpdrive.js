@@ -143,6 +143,8 @@ var WarpdriveJS = function (canvasId, width, height, backgroundColor, background
 
         god.color = options.color || '#FFFFFF';
 
+        god.radians = 0;
+
         if(options.image) {
             if(!(options.image && (typeof options.image === 'CanvasImageSource' || typeof options.image === 'string'))) {
                 return false;
@@ -154,6 +156,8 @@ var WarpdriveJS = function (canvasId, width, height, backgroundColor, background
                 god.image.src = options.image;
             }
             return true;
+        } else {
+            god.defineDrawPoints();
         }
 
         god.render();
@@ -426,6 +430,12 @@ function WarpdriveObject(warpdriveInstance) {
 
         //Sets color to white if none is provided
         self.color = options.color || '#FFFFFF';
+
+        if(options.rotation) {
+            self.radians = options.rotation * Math.PI/180;
+        } else {
+            self.radians = 0;
+        }
     }
     self.handleStyle = handleStyle;
 
@@ -494,6 +504,12 @@ function WarpdriveObject(warpdriveInstance) {
         //overwrite
     }
 
+    function drawSelection(){
+        warpdriveInstance.ctx.strokeStyle = warpdriveInstance.surface.selectorColor;
+        warpdriveInstance.ctx.lineWidth = warpdriveInstance.surface.selectorSize;
+        warpdriveInstance.ctx.strokeRect(self.positionX + warpdriveInstance.surface.selectorSize / 2, self.positionY + warpdriveInstance.surface.selectorSize/2, self.width - warpdriveInstance.surface.selectorSize, self.height - warpdriveInstance.surface.selectorSize);
+    }
+
     //redraws the current object. Only should be called by the Query.
     function redraw() {
         //this save is just to make sure no style conflicts occur.
@@ -504,9 +520,7 @@ function WarpdriveObject(warpdriveInstance) {
 
         //draws the selection border
         if(self.selected) {
-            warpdriveInstance.ctx.strokeStyle = warpdriveInstance.surface.selectorColor;
-            warpdriveInstance.ctx.lineWidth = warpdriveInstance.surface.selectorSize;
-            warpdriveInstance.ctx.strokeRect(self.positionX + warpdriveInstance.surface.selectorSize / 2, self.positionY + warpdriveInstance.surface.selectorSize/2, self.width - warpdriveInstance.surface.selectorSize, self.height - warpdriveInstance.surface.selectorSize);
+            self.drawSelection();
         }
 
         warpdriveInstance.ctx.restore();
@@ -528,6 +542,7 @@ function WarpdriveObject(warpdriveInstance) {
     this.width = self.width;
     this.childs = self.childs;
     this.specificRedraw = specificRedraw;
+    this.drawSelection = drawSelection;
     this.regular = regular;
     this.child = child;
     this.constructEssentials = constructEssentials;
@@ -544,8 +559,48 @@ function WarpdriveObject(warpdriveInstance) {
 function Rectangle(warpdriveInstance) {
     var self = new WarpdriveObject(warpdriveInstance);
 
+    function defineDrawPoints() {
+        var centralPoint = {
+            x: self.positionX + self.width / 2,
+            y: self.positionY + self.height / 2
+        };
+
+        self.upperLeftPoint = {
+            x: centralPoint.x - self.width / 2 * Math.cos(self.radians),
+            y: centralPoint.y - self.height / 2 * Math.sin(self.radians)
+        };
+        self.upperRightPoint = {
+            x: centralPoint.x - self.width / 2 * Math.cos(self.radians),
+            y: centralPoint.y - self.height / 2 * -Math.sin(self.radians)
+        };
+        self.lowerRightPoint = {
+            x: centralPoint.x - self.width / 2 * -Math.cos(self.radians),
+            y: centralPoint.y - self.height / 2 * -Math.sin(self.radians)
+        };
+        self.lowerLeftPoint = {
+            x: centralPoint.x - self.width / 2 * -Math.cos(self.radians),
+            y: centralPoint.y - self.height / 2 * Math.sin(self.radians)
+        };
+    }
+    self.defineDrawPoints = defineDrawPoints;
+
+    var parentalHandleStyle = self.handleStyle;
+    self.handleStyle = function(options, parent) {
+        parentalHandleStyle(options, parent);
+        self.defineDrawPoints();
+    };
+
     self.specificRedraw = function() {
-        warpdriveInstance.ctx.fillRect(self.positionX, self.positionY, self.width, self.height);
+        warpdriveInstance.ctx.beginPath();
+        warpdriveInstance.ctx.moveTo(self.upperLeftPoint.x, self.upperLeftPoint.y);
+        warpdriveInstance.ctx.lineTo(self.upperRightPoint.x, self.upperRightPoint.y);
+        warpdriveInstance.ctx.stroke();
+        warpdriveInstance.ctx.lineTo(self.lowerRightPoint.x, self.lowerRightPoint.y);
+        warpdriveInstance.ctx.stroke();
+        warpdriveInstance.ctx.lineTo(self.lowerLeftPoint.x, self.lowerLeftPoint.y);
+        warpdriveInstance.ctx.stroke();
+        warpdriveInstance.ctx.lineTo(self.upperLeftPoint.x, self.upperLeftPoint.y);
+        warpdriveInstance.ctx.stroke();
     };
     return self;
 }

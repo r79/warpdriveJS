@@ -14,6 +14,7 @@ var navObject = {
     type: 'Rectangle',
     width: 150,
     height: 150,
+    rotation: 45,
     color: '#00FF00',
     selectable: {
         z: 0,
@@ -40,6 +41,19 @@ function Triangle(warpdriveInstance) {
         warpdriveInstance.ctx.lineTo(self.positionX + self.width, self.positionY + self.height);
         warpdriveInstance.ctx.lineTo(self.positionX + self.width / 2, self.positionY);
         warpdriveInstance.ctx.fill();
+    };
+
+    self.drawSelection = function () {
+        warpdriveInstance.ctx.strokeStyle = warpdriveInstance.surface.selectorColor;
+        warpdriveInstance.ctx.lineWidth = warpdriveInstance.surface.selectorSize;
+
+        warpdriveInstance.ctx.beginPath();
+        warpdriveInstance.ctx.moveTo(self.positionX + warpdriveInstance.surface.selectorSize / 1.5, self.positionY + self.height - warpdriveInstance.surface.selectorSize / 2);
+        warpdriveInstance.ctx.lineTo(self.positionX + self.width - warpdriveInstance.surface.selectorSize, self.positionY + self.height - warpdriveInstance.surface.selectorSize / 2);
+        warpdriveInstance.ctx.lineTo(self.positionX + self.width / 2, self.positionY + warpdriveInstance.surface.selectorSize / 0.8);
+        warpdriveInstance.ctx.lineTo(self.positionX + warpdriveInstance.surface.selectorSize, self.positionY + self.height - warpdriveInstance.surface.selectorSize / 2);
+        warpdriveInstance.ctx.lineTo(self.positionX + self.width - warpdriveInstance.surface.selectorSize, self.positionY + self.height - warpdriveInstance.surface.selectorSize / 2);
+        warpdriveInstance.ctx.stroke();
     };
     return self;
 }
