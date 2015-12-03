@@ -433,7 +433,7 @@ function WarpdriveObject(warpdriveInstance) {
         //Sets color to white if none is provided
         self.color = options.color || '#FFFFFF';
 
-        self.radians = self.radians || options.radians || options.rotation ? options.rotation * Math.PI/180 : 0;
+        self.radians = self.radians || options.radians || 0;
     }
     self.handleStyle = handleStyle;
 
