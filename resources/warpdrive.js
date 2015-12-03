@@ -759,13 +759,15 @@ function VectorObject(warpdriveInstance) {
     self.checkCollision = function checkCollision() {
         //if the current object collided into another object
         var collidedSibling = undefined;
+        var allreadyChecked = [];
+
         wholeLoop:
         for(var i = 0; i < warpdriveInstance.getObjectById(self.parent).childs.length; i++) {
             var sibling = warpdriveInstance.getObjectById(self.parent).childs[i];
 
             sibling = warpdriveInstance.getObjectById(sibling);
 
-            if(sibling.id === self.id) {
+            if(sibling.id === self.id || allreadyChecked.indexOf(sibling.id) > 0) {
                 continue;
             }
             if(sibling.drawPoints && self.collisionBoundaryHit(sibling)) {
@@ -783,6 +785,7 @@ function VectorObject(warpdriveInstance) {
                     }
                 }
             }
+            allreadyChecked.push(sibling.id);
         }
 
         if(collidedSibling) {
