@@ -368,7 +368,7 @@ function WarpdriveObject(warpdriveInstance) {
     function constructEssentials(options, preValidation, postInit) {
         //checks if the id is valid. If it is not, the object will get a default ID.
         // IDs shall not have dots in there, as dots are used by the god object and by default ids.
-        if (options.id && (options.id.indexOf(".") === -1 && !getObjectById(options.id))) {
+        if (options.id && (options.id.indexOf(".") === -1 && !warpdriveInstance.getObjectById(options.id))) {
             self.id = options.id;
         } else {
             self.id = warpdriveInstance.getDefaultId();
