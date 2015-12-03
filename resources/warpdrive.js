@@ -203,7 +203,11 @@ function Query(refreshTime) {
             changeObject = [changeObject];
         }
         if(changeQuery[tick]) {
-            changeQuery[tick] = changeQuery[tick].concat(changeObject);
+            changeObject.forEach(function(object) {
+                if(changeQuery.indexOf(object) < 0) {
+                    changeQuery[tick].push(object);
+                }
+            });
         } else {
             changeQuery[tick] = changeObject;
         }
