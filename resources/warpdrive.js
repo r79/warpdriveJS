@@ -172,6 +172,7 @@ var WarpdriveJS = function (canvasId, width, height, backgroundColor, background
 
 //handles Drawing requests and Redraw
 function Query(refreshTime) {
+    var self = this;
 
     // the changequery is used as a two dimensional array.
     // the lower dimension holds objects that need to be redrawed,
@@ -186,10 +187,11 @@ function Query(refreshTime) {
                 currentChanges.shift().redraw();
             }
         }
-        setTimeout(update, refreshTime);
+        setTimeout(self.update, refreshTime);
     }
+    self.update = update;
     //starts the redrawing process. Put this in it's own function if you need to manually start and stop
-    setTimeout(update, refreshTime);
+    setTimeout(self.update, refreshTime);
 
     //requests a redraw for an object or an array of objects. By adding a tick variable, you can provide when this
     // shall be processed. This currently only gets used by images, which need to be preloaded before they can be drawn.
@@ -206,11 +208,9 @@ function Query(refreshTime) {
             changeQuery[tick] = changeObject;
         }
     }
+    self.queryChange = queryChange;
 
-    //exposing the querychange function.
-    return {
-        queryChange: queryChange
-    }
+    return self;
 }
 
 // This module provides selectability
