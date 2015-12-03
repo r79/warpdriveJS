@@ -761,8 +761,10 @@ function VectorObject(warpdriveInstance) {
         var collidedSibling = undefined;
         var allreadyChecked = [];
 
+        var parent = warpdriveInstance.getObjectById(self.parent);
+
         wholeLoop:
-        for(var i = 0; i < warpdriveInstance.getObjectById(self.parent).childs.length; i++) {
+        for(var i = 0; i < parent.childs.length; i++) {
             var sibling = warpdriveInstance.getObjectById(self.parent).childs[i];
 
             sibling = warpdriveInstance.getObjectById(sibling);
@@ -771,7 +773,6 @@ function VectorObject(warpdriveInstance) {
                 continue;
             }
             if(sibling.drawPoints && self.collisionBoundaryHit(sibling)) {
-                var collision = false;
                 for(var j = 0; j < sibling.drawPoints.length - 1; j++) {
                     if(self.checkCollisionFor(sibling.drawPoints[j])) {
                         collidedSibling = sibling;
@@ -786,6 +787,21 @@ function VectorObject(warpdriveInstance) {
                 }
             }
             allreadyChecked.push(sibling.id);
+        }
+
+        var leavingParentalBoundaries = false;
+        if(parent.drawPoints) {
+            for(var j = 0; j < self.drawPoints.length - 1; j++) {
+                if(!parent.checkCollisionFor(self.drawPoints[j])) {
+                    leavingParentalBoundaries = true;
+                    break;
+                }
+            }
+        }
+
+        if(leavingParentalBoundaries) {
+            console.log('left');
+            return true;
         }
 
         if(collidedSibling) {
