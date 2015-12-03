@@ -473,6 +473,17 @@ function WarpdriveObject(warpdriveInstance) {
         });
     }
 
+    function destroy() {
+        var parent = warpdriveInstance.getObjectById(self.parent);
+        var parentsChildArray = parent.childs;
+        parentsChildArray.splice(parentsChildArray.indexOf(self.id), 1);
+
+        delete warpdriveInstance.objects[self.id];
+
+        parent.render();
+    }
+    self.destroy = destroy;
+
     //updates the current position of the object
     function updatePosition() {
         if(self.id !== 'internal.god') {
