@@ -714,40 +714,49 @@ function VectorObject(warpdriveInstance) {
     };
 
     self.checkCollisionFor = function checkCollisionFor(point) {
-        var collision = false;
-        for(var i = 0; i < self.drawPoints.length - 1; i++) {
-            var points = [
-                self.drawPoints[i],
-                self.drawPoints[i+1],
-                self.centralPoint
-            ];
+        // ray-casting algorithm based on
+        // http://www.ecse.rpi.edu/Homepages/wrf/Research/Short_Notes/pnpoly.html
 
-            points.sort(function(a, b) {
-                return a.x - b.x;
-            });
+        var x = point.x, y = point.y;
 
-            //check horizontal collision
-            if(point.x > points[0].x && point.x < points[2].x) {
-                points.sort(function(a, b) {
-                    return a.y - b.y;
-                });
-                //check vertical collision
-                if(point.y > points[0].y && point.y < points[2].y) {
-                    collision = true;
-                    break;
-                }
-            }
+        var inside = false;
+        for (var i = 0, j = self.drawPoints.length - 1; i < self.drawPoints.length; j = i++) {
+            var xi = self.drawPoints[i].x, yi = self.drawPoints[i].y;
+            var xj = self.drawPoints[j].x, yj = self.drawPoints[j].y;
+
+            var intersect = ((yi > y) != (yj > y))
+                && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
         }
-        return collision;
+
+        return inside;
     };
 
     self.checkCollision = function checkCollision() {
         //if the current object collided into another object
         if(warpdriveInstance.getObjectById(self.parent).childs.some(function (sibling) {
-                var sibling = warpdriveInstance.getObjectById(sibling);
-                return sibling.drawPoints && sibling.drawPoints.some(function(drawpoint) {
-                    return self.checkCollisionFor(drawpoint);
-                });
+                if(sibling === self.id) {
+                    return false;
+                }
+                sibling = warpdriveInstance.getObjectById(sibling);
+                if(sibling.drawPoints) {
+                    var collision = false;
+                    for(var i = 0; i < sibling.drawPoints.length - 1; i++) {
+                        if(self.checkCollisionFor(sibling.drawPoints[i])) {
+                            collision = true;
+                            break;
+                        }
+                    }
+                    for(var i = 0; i < self.drawPoints.length - 1; i++) {
+                        if(sibling.checkCollisionFor(self.drawPoints[i])) {
+                            collision = true;
+                            break;
+                        }
+                    }
+                    return collision;
+                } else {
+                    return false;
+                }
             })) {
             return self.handleCollision();
         } else {
