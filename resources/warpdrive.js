@@ -528,17 +528,59 @@ function WarpdriveObject(warpdriveInstance) {
         warpdriveInstance.ctx.restore();
     }
 
+    function handleCollision() {
+        //overWrite
+        return false;
+    }
+    self.handleCollision = handleCollision;
+
+    function checkCollisionFor(point) {
+        //overWrite
+        return false;
+    }
+    self.checkCollisionFor = checkCollisionFor;
+
+    function checkCollision() {
+        //overWrite
+        return false;
+    }
+    self.checkCollision = checkCollision;
+
     //this is used to move an object. Rerenders on parental level to clean up dirty parts.
     function moveDistance(distanceX, distanceY) {
+        var previousState = {
+            x: self.offsetX,
+            y: self.offsetY
+        };
+
         self.offsetX = typeof distanceX !== 'undefined' ? self.offsetX + distanceX : self.offsetX;
         self.offsetY = typeof distanceY !== 'undefined' ? self.offsetY + distanceY : self.offsetY;
-        warpdriveInstance.getObjectById(self.parent).render();
+
+        self.updatePosition();
+        if(self.checkCollision()) {
+            self.offsetX = previousState.x;
+            self.offsetY = previousState.y;
+            self.updatePosition();
+        } else {
+            warpdriveInstance.getObjectById(self.parent).render();
+        }
     }
+    self.moveDistance = moveDistance;
 
     function changeRotation(difference) {
+        var previousState = self.radians;
+
         self.radians = (self.radians / Math.PI * 180 + difference) * Math.PI / 180;
-        warpdriveInstance.getObjectById(self.parent).render();
+
+        self.updatePosition();
+        if(self.checkCollision()) {
+            self.radians = previousState;
+            self.updatePosition();
+        } else {
+            warpdriveInstance.getObjectById(self.parent).render();
+        }
     }
+    self.changeRotation = changeRotation;
 
     //internal expose
     this.render = render;
@@ -588,18 +630,17 @@ function VectorObject(warpdriveInstance) {
     }
 
     self.updateDrawPoints = function updateDrawPoints() {
-        var centralPoint = get_polygon_centroid(self.drawPoints);
-
+        self.centralPoint = get_polygon_centroid(self.drawPoints);
         function calculatePoint(x, y) {
-            var tempX = x - centralPoint.x;
-            var tempY = y - centralPoint.y;
+            var tempX = x - self.centralPoint.x;
+            var tempY = y - self.centralPoint.y;
 
             var rotatedX = tempX*Math.cos(self.radians) - tempY*Math.sin(self.radians);
             var rotatedY = tempX*Math.sin(self.radians) + tempY*Math.cos(self.radians);
 
             return {
-                x: rotatedX + centralPoint.x,
-                y: rotatedY + centralPoint.y
+                x: rotatedX + self.centralPoint.x,
+                y: rotatedY + self.centralPoint.y
             }
         }
         for(var i=0;i<self.drawPoints.length;i++) {
@@ -609,6 +650,7 @@ function VectorObject(warpdriveInstance) {
 
     self.handlePoints = function handlePoints() {
         self.drawPoints = [];
+        self.collisionFiels = [];
         for(var i = 0; i < self.points.length; i++) {
             var point = self.points[i];
             self.drawPoints[i] = {
@@ -640,6 +682,14 @@ function VectorObject(warpdriveInstance) {
             warpdriveInstance.ctx.lineTo(self.drawPoints[i].x, self.drawPoints[i].y);
         }
         warpdriveInstance.ctx.fill();
+
+        //outcomment to see collision fields
+        //for(var i = 1; i < self.drawPoints.length; i++) {
+        //    warpdriveInstance.ctx.beginPath();
+        //    warpdriveInstance.ctx.moveTo(self.centralPoint.x, self.centralPoint.y);
+        //    warpdriveInstance.ctx.lineTo(self.drawPoints[i].x, self.drawPoints[i].y);
+        //    warpdriveInstance.ctx.stroke();
+        //}
     };
 
     self.drawSelection = function () {
@@ -657,6 +707,52 @@ function VectorObject(warpdriveInstance) {
         warpdriveInstance.ctx.lineTo(self.drawPoints[1].x, self.drawPoints[1].y);
 
         warpdriveInstance.ctx.stroke();
+    };
+
+    self.handleCollision = function handleCollision() {
+        return true;
+    };
+
+    self.checkCollisionFor = function checkCollisionFor(point) {
+        var collision = false;
+        for(var i = 0; i < self.drawPoints.length - 1; i++) {
+            var points = [
+                self.drawPoints[i],
+                self.drawPoints[i+1],
+                self.centralPoint
+            ];
+
+            points.sort(function(a, b) {
+                return a.x - b.x;
+            });
+
+            //check horizontal collision
+            if(point.x > points[0].x && point.x < points[2].x) {
+                points.sort(function(a, b) {
+                    return a.y - b.y;
+                });
+                //check vertical collision
+                if(point.y > points[0].y && point.y < points[2].y) {
+                    collision = true;
+                    break;
+                }
+            }
+        }
+        return collision;
+    };
+
+    self.checkCollision = function checkCollision() {
+        //if the current object collided into another object
+        if(warpdriveInstance.getObjectById(self.parent).childs.some(function (sibling) {
+                var sibling = warpdriveInstance.getObjectById(sibling);
+                return sibling.drawPoints && sibling.drawPoints.some(function(drawpoint) {
+                    return self.checkCollisionFor(drawpoint);
+                });
+            })) {
+            return self.handleCollision();
+        } else {
+            return false;
+        }
     };
 
     return self;
