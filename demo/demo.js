@@ -1,4 +1,4 @@
-var warpdrive = new WarpdriveJS('mainContent', 1000, 600, '#000000');
+var warpdrive = new Warpdrive('mainContent', 1000, 600, '#000000');
 
 var textNode = {
     type: 'Text',
