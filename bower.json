@@ -1,0 +1,20 @@
+{
+  "name": "warpdriveJS",
+  "description": "a lightweigth canvas framework",
+  "main": "./bin/warpdrive.js",
+  "keywords": [
+    "canvas"
+  ],
+  "authors": [
+    "r79"
+  ],
+  "license": "MIT",
+  "homepage": "",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
