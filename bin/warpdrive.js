@@ -484,6 +484,8 @@
 	            warpdriveInstance.selector.registerSelectable(self.id, options.selectable.z, options.selectable.x, options.selectable.y);
 	        }
 
+	        self.sticky = options.sticky;
+
 	        if(postInit) {
 	            postInit();
 	        }
@@ -641,6 +643,23 @@
 
 	        self.offsetX = typeof distanceX !== 'undefined' ? self.offsetX + distanceX : self.offsetX;
 	        self.offsetY = typeof distanceY !== 'undefined' ? self.offsetY + distanceY : self.offsetY;
+
+	        if(self.sticky) {
+	            var parentalWidth = warpdriveInstance.getObjectById(self.parent).width;
+	            var parentalHeight = warpdriveInstance.getObjectById(self.parent).height
+	            
+	            if(self.offsetX > parentalWidth) {
+	                self.offsetX = self.offsetX - parentalWidth; 
+	            } else if(self.offsetX < 0) {
+	                self.offsetX = self.offsetX + parentalWidth;
+	            }
+	            
+	            if(self.offsetY > parentalHeight) {
+	                self.offsetY = self.offsetY - parentalHeight;
+	            } else if(self.offsetY < 0) {
+	                self.offsetY = self.offsetY + parentalHeight;
+	            }
+	        }
 
 	        self.updatePosition();
 	        if(self.checkCollision()) {
@@ -882,8 +901,7 @@
 	            }
 	        }
 
-	        if(leavingParentalBoundaries) {
-	            console.log('left');
+	        if(leavingParentalBoundaries && !self.sticky) {
 	            return true;
 	        }
 

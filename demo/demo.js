@@ -19,7 +19,8 @@ var navObject = {
         z: 0,
         x: 0,
         y: 0
-    }
+    },
+    sticky: true
 };
 
 var image = {

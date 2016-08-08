@@ -182,8 +182,7 @@ function VectorObject(warpdriveInstance) {
             }
         }
 
-        if(leavingParentalBoundaries) {
-            console.log('left');
+        if(leavingParentalBoundaries && !self.sticky) {
             return true;
         }
 
