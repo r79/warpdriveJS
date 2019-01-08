@@ -1,3 +1,5 @@
+This is the legacy version of the warpdrive Engine, a newer version is in the making and will soon be available.
+
 # warpdriveJS
 Warpdrive is a small, lightweight Canvas engine, with the purpose of making Canvasworks a little bit easier. It has no dependencies on anything, no external libraries, nothing.
 
